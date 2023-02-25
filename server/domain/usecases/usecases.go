@@ -6,6 +6,11 @@ import (
 	"regexp"
 )
 
+type ClientEntity struct {
+	ID       string
+	HostName string
+}
+
 func RemountPayload(payload []byte) []byte {
 	rx, err := regexp.Compile(`^[\s]+|[\s]+$`)
 	if err != nil {
