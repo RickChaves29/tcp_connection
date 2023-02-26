@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/RickChaves29/tcp_service/server/domain/usecases"
+	"github.com/RickChaves29/tcp_service/server/presenter"
 	"github.com/google/uuid"
 )
 
@@ -33,6 +34,8 @@ func main() {
 		}
 		serverMessage := fmt.Sprintf("Welcome your id is %s\n", clientID)
 		conn.Write([]byte(serverMessage))
+		ap := presenter.NewActionPresenter(conn, uc)
+		go ap.SetAction()
 	}
 
 }
