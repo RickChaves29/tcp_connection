@@ -62,3 +62,137 @@ func TestShoudNotAddNewClientAndReturnIDAndError(t *testing.T) {
 		}
 	})
 }
+
+func TestShoudListAllClientsID(t *testing.T) {
+	repoTest := []usecases.ClientEntity{
+		{
+			ID:       "2f92634b-9eeb-4b84-8970-c47be1625952",
+			HostName: "localhost:40443",
+		},
+		{
+			ID:       "6d976bb0-9afd-4f39-bfcb-2450fce55200",
+			HostName: "localhost:40444",
+		},
+		{
+			ID:       "a08a59bf-a53d-4489-9c93-464f9ddc5928",
+			HostName: "localhost:40445",
+		},
+		{
+			ID:       "07704e40-f3ac-42fb-b2ca-03bd4f497e90",
+			HostName: "localhost:40446",
+		},
+	}
+
+	repoWant := []string{
+		"2f92634b-9eeb-4b84-8970-c47be1625952",
+		"6d976bb0-9afd-4f39-bfcb-2450fce55200",
+		"a08a59bf-a53d-4489-9c93-464f9ddc5928",
+		"07704e40-f3ac-42fb-b2ca-03bd4f497e90",
+	}
+
+	uc := usecases.NewUsecase(repoTest)
+
+	resultHave, _ := uc.ListAllClientsID("2f92634b-9eeb-4b84-8970-c47be1625952", "LIST")
+
+	if len(resultHave) != len(repoWant) {
+		t.Errorf("result lenght have is %v but result lenght want is %v", len(resultHave), len(repoWant))
+	}
+}
+
+func TestShoudListAllClientsIDWithError(t *testing.T) {
+	repoTest := []usecases.ClientEntity{
+		{
+			ID:       "2f92634b-9eeb-4b84-8970-c47be1625952",
+			HostName: "localhost:40443",
+		},
+		{
+			ID:       "6d976bb0-9afd-4f39-bfcb-2450fce55200",
+			HostName: "localhost:40444",
+		},
+		{
+			ID:       "a08a59bf-a53d-4489-9c93-464f9ddc5928",
+			HostName: "localhost:40445",
+		},
+		{
+			ID:       "07704e40-f3ac-42fb-b2ca-03bd4f497e90",
+			HostName: "localhost:40446",
+		},
+	}
+
+	uc := usecases.NewUsecase(repoTest)
+	t.Run("if id is empty", func(t *testing.T) {
+		_, err := uc.ListAllClientsID("", "LIST")
+		if err.Error() != "id is empty" {
+			t.Errorf("error have is %v but error want is %v", err.Error(), "id is empty")
+		}
+	})
+	t.Run("if action is empty", func(t *testing.T) {
+		_, err := uc.ListAllClientsID("2f92634b-9eeb-4b84-8970-c47be1625952", "")
+		if err.Error() != "action is empty" {
+			t.Errorf("error have is %v but error want is %v", err.Error(), "action is empty")
+		}
+	})
+	t.Run("if id is not found", func(t *testing.T) {
+		_, err := uc.ListAllClientsID("2f92634b-9eeb-4b84-8970-c47be1625999", "LIST")
+		if err.Error() != "id not found" {
+			t.Errorf("error have is %v but error want is %v", err.Error(), "id not found")
+		}
+	})
+}
+
+func TestFindClientByID(t *testing.T) {
+	repoTest := []usecases.ClientEntity{
+		{
+			ID:       "2f92634b-9eeb-4b84-8970-c47be1625952",
+			HostName: "localhost:40443",
+		},
+		{
+			ID:       "6d976bb0-9afd-4f39-bfcb-2450fce55200",
+			HostName: "localhost:40444",
+		},
+		{
+			ID:       "a08a59bf-a53d-4489-9c93-464f9ddc5928",
+			HostName: "localhost:40445",
+		},
+		{
+			ID:       "07704e40-f3ac-42fb-b2ca-03bd4f497e90",
+			HostName: "localhost:40446",
+		},
+	}
+
+	uc := usecases.NewUsecase(repoTest)
+	resultWant := "2f92634b-9eeb-4b84-8970-c47be1625952"
+	resultHave, _ := uc.FindClientByID("2f92634b-9eeb-4b84-8970-c47be1625952")
+
+	if resultHave != resultWant {
+		t.Errorf("result have is %v result want is %v", resultHave, resultWant)
+	}
+}
+func TestFindClientByIDWithError(t *testing.T) {
+	repoTest := []usecases.ClientEntity{
+		{
+			ID:       "2f92634b-9eeb-4b84-8970-c47be1625952",
+			HostName: "localhost:40443",
+		},
+		{
+			ID:       "6d976bb0-9afd-4f39-bfcb-2450fce55200",
+			HostName: "localhost:40444",
+		},
+		{
+			ID:       "a08a59bf-a53d-4489-9c93-464f9ddc5928",
+			HostName: "localhost:40445",
+		},
+		{
+			ID:       "07704e40-f3ac-42fb-b2ca-03bd4f497e90",
+			HostName: "localhost:40446",
+		},
+	}
+
+	uc := usecases.NewUsecase(repoTest)
+	errorWant := "id not found"
+	_, err := uc.FindClientByID("2f92634b-9eeb-4b84-8970-c47be1625999")
+
+	if err.Error() != errorWant {
+		t.Errorf("error have is %v error want is %v", err.Error(), errorWant)
+	}
+}
