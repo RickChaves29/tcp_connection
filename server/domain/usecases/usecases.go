@@ -30,10 +30,42 @@ func RemountPayload(payload []byte) []byte {
 	return newPayload
 }
 
-func (us *Usecase) AddNewClient(id string, clientHost string) (string, error) {
+func (uc *Usecase) AddNewClient(id string, clientHost string) (string, error) {
 	if clientHost == "" {
 		return "", errors.New("client host is empty")
 	}
-	us.Repository = append(us.Repository, ClientEntity{id, clientHost})
+	uc.Repository = append(uc.Repository, ClientEntity{id, clientHost})
 	return id, nil
+}
+
+func (uc *Usecase) ListAllClientsID(id string, action string) ([]string, error) {
+	allClientsID := []string{}
+	if id == "" {
+		return nil, errors.New("id is empty")
+	}
+	if action == "" {
+		return nil, errors.New("action is empty")
+	}
+	_, err := uc.FindClientByID(id)
+	if err != nil {
+		return nil, err
+	}
+	for _, client := range uc.Repository {
+		allClientsID = append(allClientsID, client.ID)
+	}
+	return allClientsID, nil
+}
+
+func (uc *Usecase) FindClientByID(id string) (string, error) {
+	var clientID string
+	for _, client := range uc.Repository {
+		if id == client.ID {
+			clientID = client.ID
+			break
+		}
+	}
+	if clientID == "" {
+		return "", errors.New("id not found")
+	}
+	return clientID, nil
 }
