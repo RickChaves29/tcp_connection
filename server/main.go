@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
+var connections = make(map[string]net.Conn)
+
 func main() {
 	PORT := fmt.Sprintf(":%s", os.Getenv("SERVER_PORT"))
 	repository := []usecases.ClientEntity{}
@@ -20,12 +22,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("LOG - [ERROR]: %v\n", err.Error())
 	}
+	defer l.Close()
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			log.Fatalf("LOG - [ERROR]: %v\n", err.Error())
 		}
 		id := uuid.New().String()
+		connections[id] = conn
 		clientHost := conn.RemoteAddr().String()
 		clientID, err := uc.AddNewClient(id, clientHost)
 		log.Printf("LOG - [CONNECTED] host: %s client_id: %s\n", clientHost, clientID)
@@ -35,7 +39,7 @@ func main() {
 		serverMessage := fmt.Sprintf("Welcome your id is %s\n", clientID)
 		conn.Write([]byte(serverMessage))
 		ap := presenter.NewActionPresenter(conn, uc)
-		go ap.SetAction()
+		go ap.SetAction(connections)
 	}
 
 }
