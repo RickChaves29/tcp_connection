@@ -1,77 +1,57 @@
 package presenter
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"net"
 
 	"github.com/RickChaves29/tcp_service/server/domain/usecases"
+	"github.com/google/uuid"
 )
 
-type ActionPresenter struct {
-	conn    net.Conn
-	usecase *usecases.Usecase
+type presenter struct {
+	uc *usecases.Usecase
+	l  net.Listener
 }
 
-func NewActionPresenter(conn net.Conn, uc *usecases.Usecase) *ActionPresenter {
-	return &ActionPresenter{
-		conn:    conn,
-		usecase: uc,
+func NewPresenter(uc *usecases.Usecase) (*presenter, error) {
+	l, err := net.Listen("tcp", ":3000")
+	if err != nil {
+		return nil, err
 	}
+	return &presenter{
+		uc: uc,
+		l:  l,
+	}, nil
 }
 
-func (ap *ActionPresenter) SetAction(connections map[string]net.Conn) {
-	defer ap.conn.Close()
-	var (
-		id, action string
-	)
+func (p *presenter) Start() error {
+	defer p.l.Close()
+	return p.handlerConnections()
+}
 
-	idPayload := make([]byte, 1024)
-	actionPayload := make([]byte, 1024)
-	bodyPayload := make([]byte, 1024)
+func (p *presenter) handlerConnections() error {
+	conn, err := p.l.Accept()
+	if err != nil {
+		return err
+	}
+	if conn == nil {
+		return errors.New("connection is null")
+	}
+	uuid := uuid.New().String()
+	id, err := p.uc.AddNewClient(uuid, conn.RemoteAddr().String())
+	if err != nil {
+		log.Printf("LOG - [create-id-error]: %v", err.Error())
+	}
+	go p.handlerConnection(conn, id)
+	return nil
+}
 
-	_, err := ap.conn.Read(idPayload)
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
-	_, err = ap.conn.Read(actionPayload)
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
-	_, err = ap.conn.Read(bodyPayload)
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
-	id = string(usecases.RemountPayload(idPayload))
-	action = string(usecases.RemountPayload(actionPayload))
-	body := string(usecases.RemountPayload(bodyPayload))
-	switch action {
-	case "LIST":
-		clients, err := ap.usecase.ListAllClientsID(id, action)
-		if err != nil {
-			log.Printf("LOG - [ERROR]: %v", err.Error())
-		}
-		for _, client := range clients {
-			_, err = ap.conn.Write([]byte("client -> " + client + "\n"))
-			if err != nil {
-				log.Printf("LOG - [ERROR]: %v", err.Error())
-			}
-		}
-	case "RELAY":
-		for _, conn := range connections {
-			_, err := conn.Write([]byte(body + "\n"))
-			if err != nil {
-				log.Printf("LOG - [ERROR]: %v", err.Error())
-			}
-		}
-	default:
-		_, err := ap.conn.Write([]byte("action " + action + " is incorrect or not exist\n"))
-		if err != nil {
-			log.Printf("LOG - [ERROR]: %v", err.Error())
-		}
-	}
-	_, err = ap.conn.Write([]byte("\nRecive message\n"))
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
+func (p *presenter) handlerConnection(conn net.Conn, id string) {
+	defer conn.Close()
+	fmt.Fprintf(conn, "Welcome Client\n")
+	fmt.Fprintf(conn, "Your ID is %v\n", id)
+	log.Printf("LOG - [client]: new client connected\n")
 
 }
