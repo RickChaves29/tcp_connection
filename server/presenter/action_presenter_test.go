@@ -2,6 +2,7 @@ package presenter_test
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -20,7 +21,21 @@ func init() {
 		return
 	}
 	go func() {
-		server.Start()
+		for {
+			conn, err := server.Listener.Accept()
+			if err != nil {
+				log.Printf("LOG - [test-listener-error]: %v", err)
+
+			}
+			if conn == nil {
+				log.Printf("LOG - [test-connction-error]: %v", err)
+			}
+			id, err := server.Usecase.AddNewClient("9e32bfb4-913a-472a-90d1-e4b4da3e09af", conn.RemoteAddr().String())
+			if err != nil {
+				log.Printf("LOG - [create-id-error]: %v", err.Error())
+			}
+			go server.HandlerConnection(conn, id)
+		}
 	}()
 }
 
@@ -31,31 +46,32 @@ func TestIfConnectionIsOK(t *testing.T) {
 	}
 	defer conn.Close()
 }
-func TestCaseConnection(t *testing.T) {
-	tc := struct {
-		test         string
-		welcameWant  string
-		clientIDWant string
-		idWant       string
-	}{
-		test:         "if LIST return all clients id",
-		welcameWant:  "Welcome Client\n",
-		clientIDWant: "Your ID is 4a9e363f-6fd6-4b0e-bd96-e7d75e581b43\n",
-		idWant:       "4a9e363f-6fd6-4b0e-bd96-e7d75e581b43\n",
-	}
-	conn, err := net.Dial("tcp", ":3000")
-	if err != nil {
-		t.Error("could not connected to server: ", err.Error())
-	}
-	defer conn.Close()
-	r := bufio.NewReader(conn)
-	welcomeHave, _ := r.ReadString('\n')
-	if strings.Compare(welcomeHave, tc.welcameWant) > 0 {
-		t.Errorf("welcome have %v welcome want %v\n", welcomeHave, tc.welcameWant)
-	}
 
-	idClientHave, _ := r.ReadString('\n')
-	if len([]byte(idClientHave)) > len(tc.clientIDWant) {
-		t.Errorf("id client have %v id client want %v\n", idClientHave, string(tc.clientIDWant))
+func Test(t *testing.T) {
+	testCasesWant := struct {
+		msgServer string
+		listWant  string
+	}{
+		msgServer: "Welcome Client Your ID is 9e32bfb4-913a-472a-90d1-e4b4da3e09af\n",
+		listWant:  "client 0 -> id: 9e32bfb4-913a-472a-90d1-e4b4da3e09af\n",
+	}
+	conn, _ := net.Dial("tcp", ":3000")
+	r := bufio.NewReader(conn)
+	msgServerHave, _ := r.ReadString('\n')
+	fmt.Fprintf(conn, "9e32bfb4-913a-472a-90d1-e4b4da3e09af\n")
+	fmt.Fprintf(conn, "LIST\n")
+	fmt.Fprintf(conn, "\n")
+	for range uc.Repository {
+		clients, _ := r.ReadString('\n')
+		t.Run("if message welcome is correct receive", func(t *testing.T) {
+			if strings.EqualFold(msgServerHave, testCasesWant.msgServer) == false {
+				t.Errorf("have %v want %v\n", msgServerHave, testCasesWant.msgServer)
+			}
+		})
+		t.Run("if receive list of clients id", func(t *testing.T) {
+			if clients != testCasesWant.listWant {
+				t.Errorf("have %v want %v", clients, testCasesWant.listWant)
+			}
+		})
 	}
 }

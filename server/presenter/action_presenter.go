@@ -1,6 +1,7 @@
 package presenter
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"log"
@@ -11,8 +12,8 @@ import (
 )
 
 type presenter struct {
-	uc *usecases.Usecase
-	l  net.Listener
+	Usecase  *usecases.Usecase
+	Listener net.Listener
 }
 
 func NewPresenter(uc *usecases.Usecase) (*presenter, error) {
@@ -21,37 +22,63 @@ func NewPresenter(uc *usecases.Usecase) (*presenter, error) {
 		return nil, err
 	}
 	return &presenter{
-		uc: uc,
-		l:  l,
+		Usecase:  uc,
+		Listener: l,
 	}, nil
 }
 
 func (p *presenter) Start() error {
-	defer p.l.Close()
+	defer p.Listener.Close()
 	return p.handlerConnections()
 }
 
 func (p *presenter) handlerConnections() error {
-	conn, err := p.l.Accept()
-	if err != nil {
-		return err
+	for {
+		conn, err := p.Listener.Accept()
+		if err != nil {
+			return err
+		}
+		if conn == nil {
+			return errors.New("connection is null")
+		}
+		uuid := uuid.New().String()
+		id, err := p.Usecase.AddNewClient(uuid, conn.RemoteAddr().String())
+		if err != nil {
+			log.Printf("LOG - [create-id-error]: %v", err.Error())
+		}
+		go p.HandlerConnection(conn, id)
 	}
-	if conn == nil {
-		return errors.New("connection is null")
-	}
-	uuid := uuid.New().String()
-	id, err := p.uc.AddNewClient(uuid, conn.RemoteAddr().String())
-	if err != nil {
-		log.Printf("LOG - [create-id-error]: %v", err.Error())
-	}
-	go p.handlerConnection(conn, id)
-	return nil
 }
 
-func (p *presenter) handlerConnection(conn net.Conn, id string) {
+func (p *presenter) HandlerConnection(conn net.Conn, id string) {
 	defer conn.Close()
-	fmt.Fprintf(conn, "Welcome Client\n")
-	fmt.Fprintf(conn, "Your ID is %v\n", id)
+	r := bufio.NewReader(conn)
+	fmt.Fprintf(conn, "Welcome Client Your ID is %v\n", id)
 	log.Printf("LOG - [client]: new client connected\n")
-
+	idPayload, err := r.ReadString('\n')
+	if err != nil {
+		log.Printf("LOG - [client-id-error]: %v\n", err.Error())
+	}
+	newID := usecases.RemountPayload([]byte(idPayload))
+	actionPayload, err := r.ReadString('\n')
+	if err != nil {
+		log.Printf("LOG - [client-action-error]: %v\n", err.Error())
+	}
+	newAction := usecases.RemountPayload([]byte(actionPayload))
+	_, err = r.ReadString('\n')
+	if err != nil {
+		log.Printf("LOG - [client-body-error]: %v\n", err.Error())
+	}
+	switch string(newAction) {
+	case "LIST":
+		idExists := p.Usecase.FindClientByID(string(newID))
+		if !idExists {
+			fmt.Fprintf(conn, "id incorrect")
+		} else {
+			clients := p.Usecase.ListAllClientsID()
+			for n, id := range clients {
+				fmt.Fprintf(conn, "client %v -> id: %v\n", n, id)
+			}
+		}
+	}
 }
