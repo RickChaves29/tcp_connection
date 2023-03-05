@@ -12,8 +12,9 @@ import (
 )
 
 type presenter struct {
-	Usecase  *usecases.Usecase
-	Listener net.Listener
+	Usecase     *usecases.Usecase
+	Listener    net.Listener
+	Connections map[string]net.Conn
 }
 
 func NewPresenter(uc *usecases.Usecase) (*presenter, error) {
@@ -22,8 +23,9 @@ func NewPresenter(uc *usecases.Usecase) (*presenter, error) {
 		return nil, err
 	}
 	return &presenter{
-		Usecase:  uc,
-		Listener: l,
+		Usecase:     uc,
+		Listener:    l,
+		Connections: make(map[string]net.Conn),
 	}, nil
 }
 
@@ -46,6 +48,7 @@ func (p *presenter) handlerConnections() error {
 		if err != nil {
 			log.Printf("LOG - [create-id-error]: %v", err.Error())
 		}
+		p.Connections[id] = conn
 		go p.HandlerConnection(conn, id)
 	}
 }
@@ -65,10 +68,11 @@ func (p *presenter) HandlerConnection(conn net.Conn, id string) {
 		log.Printf("LOG - [client-action-error]: %v\n", err.Error())
 	}
 	newAction := usecases.RemountPayload([]byte(actionPayload))
-	_, err = r.ReadString('\n')
+	bodyPayload, err := r.ReadString('\n')
 	if err != nil {
 		log.Printf("LOG - [client-body-error]: %v\n", err.Error())
 	}
+	body := usecases.RemountPayload([]byte(bodyPayload))
 	switch string(newAction) {
 	case "LIST":
 		idExists := p.Usecase.FindClientByID(string(newID))
@@ -80,5 +84,16 @@ func (p *presenter) HandlerConnection(conn net.Conn, id string) {
 				fmt.Fprintf(conn, "client %v -> id: %v\n", n, id)
 			}
 		}
+	case "RELAY":
+		idExists := p.Usecase.FindClientByID(string(newID))
+		if !idExists {
+			fmt.Fprintf(conn, "id incorrect")
+		} else {
+			for _, connection := range p.Connections {
+				fmt.Printf("%v\n", len(p.Connections))
+				fmt.Fprintf(connection, "body receive -> %v\n", string(body))
+			}
+		}
+
 	}
 }
