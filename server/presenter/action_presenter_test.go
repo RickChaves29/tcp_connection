@@ -34,6 +34,9 @@ func init() {
 			if err != nil {
 				log.Printf("LOG - [create-id-error]: %v", err.Error())
 			}
+			connections := make(map[string]net.Conn)
+			connections[id] = conn
+			server.Connections = connections
 			go server.HandlerConnection(conn, id)
 		}
 	}()
@@ -47,7 +50,7 @@ func TestIfConnectionIsOK(t *testing.T) {
 	defer conn.Close()
 }
 
-func Test(t *testing.T) {
+func TestIfReturnListOfCLientIsCorrect(t *testing.T) {
 	testCasesWant := struct {
 		msgServer string
 		listWant  string
@@ -74,4 +77,26 @@ func Test(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIfReturnBodyWhenClientSendActionRelay(t *testing.T) {
+	testCasesWant := struct {
+		msgServer string
+		bodyWant  string
+	}{
+		msgServer: "Welcome Client Your ID is 9e32bfb4-913a-472a-90d1-e4b4da3e09af\n",
+		bodyWant:  "body receive -> any data\n",
+	}
+	conn, _ := net.Dial("tcp", ":3000")
+	r := bufio.NewReader(conn)
+	_, _ = r.ReadString('\n')
+	fmt.Fprintf(conn, "9e32bfb4-913a-472a-90d1-e4b4da3e09af\n")
+	fmt.Fprintf(conn, "RELAY\n")
+	fmt.Fprintf(conn, "any data\n")
+	bodyHave, _ := r.ReadString('\n')
+	t.Run("if body is correct receive", func(t *testing.T) {
+		if strings.EqualFold(bodyHave, testCasesWant.bodyWant) == false {
+			t.Errorf("have %v want %v\n", bodyHave, testCasesWant.bodyWant)
+		}
+	})
 }
