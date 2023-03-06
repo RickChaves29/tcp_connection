@@ -90,7 +90,6 @@ func (p *presenter) HandlerConnection(conn net.Conn, id string) {
 			fmt.Fprintf(conn, "id incorrect")
 		} else {
 			for _, connection := range p.Connections {
-				fmt.Printf("%v\n", len(p.Connections))
 				fmt.Fprintf(connection, "body receive -> %v\n", string(body))
 			}
 		}
