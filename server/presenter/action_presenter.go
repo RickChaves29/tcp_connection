@@ -20,6 +20,7 @@ type presenter struct {
 
 func NewPresenter(uc *usecases.Usecase) (*presenter, error) {
 	l, err := net.Listen("tcp", ":"+os.Getenv("SERVER_PORT"))
+	log.Printf("LOG - [server-start]: running on port -> %v", os.Getenv("SERVER_PORT"))
 	if err != nil {
 		return nil, err
 	}
