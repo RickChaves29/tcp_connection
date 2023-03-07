@@ -65,7 +65,9 @@ func TestIfReturnListOfCLientIsCorrect(t *testing.T) {
 	fmt.Fprintf(conn, "LIST\n")
 	fmt.Fprintf(conn, "\n")
 	for range uc.Repository {
+		_, _ = r.ReadString('\n')
 		clients, _ := r.ReadString('\n')
+
 		t.Run("if message welcome is correct receive", func(t *testing.T) {
 			if strings.EqualFold(msgServerHave, testCasesWant.msgServer) == false {
 				t.Errorf("have %v want %v\n", msgServerHave, testCasesWant.msgServer)
@@ -93,6 +95,7 @@ func TestIfReturnBodyWhenClientSendActionRelay(t *testing.T) {
 	fmt.Fprintf(conn, "9e32bfb4-913a-472a-90d1-e4b4da3e09af\n")
 	fmt.Fprintf(conn, "RELAY\n")
 	fmt.Fprintf(conn, "any data\n")
+	_, _ = r.ReadString('\n')
 	bodyHave, _ := r.ReadString('\n')
 	t.Run("if body is correct receive", func(t *testing.T) {
 		if strings.EqualFold(bodyHave, testCasesWant.bodyWant) == false {
