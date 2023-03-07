@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	conn, err := net.Dial("tcp", ":3000")
+	conn, err := net.Dial("tcp", ":"+os.Getenv("SERVER_PORT"))
 	if err != nil {
 		log.Fatalf("LOG - [error]: %v", err.Error())
 	}
