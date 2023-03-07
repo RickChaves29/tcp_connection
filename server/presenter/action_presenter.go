@@ -85,7 +85,7 @@ func (p *presenter) HandlerConnection(conn net.Conn, id string) {
 		} else {
 			clients := p.Usecase.ListAllClientsID()
 			for n, id := range clients {
-				fmt.Fprintf(conn, "client %v -> id: %v\n", n, id)
+				fmt.Fprintf(conn, "\nclient %v -> id: %v\n", n, id)
 			}
 		}
 	case "RELAY":
@@ -94,7 +94,7 @@ func (p *presenter) HandlerConnection(conn net.Conn, id string) {
 			fmt.Fprintf(conn, "id incorrect")
 		} else {
 			for _, connection := range p.Connections {
-				fmt.Fprintf(connection, "body receive -> %v\n", string(body))
+				fmt.Fprintf(connection, "\nbody receive -> %v\n", string(body))
 			}
 		}
 
