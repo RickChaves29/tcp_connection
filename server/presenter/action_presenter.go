@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/RickChaves29/tcp_service/server/domain/usecases"
 	"github.com/google/uuid"
@@ -18,7 +19,7 @@ type presenter struct {
 }
 
 func NewPresenter(uc *usecases.Usecase) (*presenter, error) {
-	l, err := net.Listen("tcp", ":3000")
+	l, err := net.Listen("tcp", ":"+os.Getenv("SERVER_PORT"))
 	if err != nil {
 		return nil, err
 	}
@@ -58,16 +59,19 @@ func (p *presenter) HandlerConnection(conn net.Conn, id string) {
 	r := bufio.NewReader(conn)
 	fmt.Fprintf(conn, "Welcome Client Your ID is %v\n", id)
 	log.Printf("LOG - [client]: new client connected\n")
+	fmt.Fprintf(conn, "ID [your id] (require): ")
 	idPayload, err := r.ReadString('\n')
 	if err != nil {
 		log.Printf("LOG - [client-id-error]: %v\n", err.Error())
 	}
 	newID := usecases.RemountPayload([]byte(idPayload))
+	fmt.Fprintf(conn, "ACTION [LIST|RELAY] (require): ")
 	actionPayload, err := r.ReadString('\n')
 	if err != nil {
 		log.Printf("LOG - [client-action-error]: %v\n", err.Error())
 	}
 	newAction := usecases.RemountPayload([]byte(actionPayload))
+	fmt.Fprintf(conn, "BODY [any data] (optional): ")
 	bodyPayload, err := r.ReadString('\n')
 	if err != nil {
 		log.Printf("LOG - [client-body-error]: %v\n", err.Error())
