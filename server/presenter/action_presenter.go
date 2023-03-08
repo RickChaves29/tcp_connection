@@ -1,77 +1,103 @@
 package presenter
 
 import (
+	"bufio"
+	"errors"
+	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/RickChaves29/tcp_service/server/domain/usecases"
+	"github.com/google/uuid"
 )
 
-type ActionPresenter struct {
-	conn    net.Conn
-	usecase *usecases.Usecase
+type presenter struct {
+	Usecase     *usecases.Usecase
+	Listener    net.Listener
+	Connections map[string]net.Conn
 }
 
-func NewActionPresenter(conn net.Conn, uc *usecases.Usecase) *ActionPresenter {
-	return &ActionPresenter{
-		conn:    conn,
-		usecase: uc,
+func NewPresenter(uc *usecases.Usecase) (*presenter, error) {
+	l, err := net.Listen("tcp", ":"+os.Getenv("SERVER_PORT"))
+	log.Printf("LOG - [server-start]: running on port -> %v", os.Getenv("SERVER_PORT"))
+	if err != nil {
+		return nil, err
 	}
+	return &presenter{
+		Usecase:     uc,
+		Listener:    l,
+		Connections: make(map[string]net.Conn),
+	}, nil
 }
 
-func (ap *ActionPresenter) SetAction(connections map[string]net.Conn) {
-	defer ap.conn.Close()
-	var (
-		id, action string
-	)
+func (p *presenter) Start() error {
+	defer p.Listener.Close()
+	return p.handlerConnections()
+}
 
-	idPayload := make([]byte, 1024)
-	actionPayload := make([]byte, 1024)
-	bodyPayload := make([]byte, 1024)
-
-	_, err := ap.conn.Read(idPayload)
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
-	_, err = ap.conn.Read(actionPayload)
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
-	_, err = ap.conn.Read(bodyPayload)
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
-	id = string(usecases.RemountPayload(idPayload))
-	action = string(usecases.RemountPayload(actionPayload))
-	body := string(usecases.RemountPayload(bodyPayload))
-	switch action {
-	case "LIST":
-		clients, err := ap.usecase.ListAllClientsID(id, action)
+func (p *presenter) handlerConnections() error {
+	for {
+		conn, err := p.Listener.Accept()
 		if err != nil {
-			log.Printf("LOG - [ERROR]: %v", err.Error())
+			return err
 		}
-		for _, client := range clients {
-			_, err = ap.conn.Write([]byte("client -> " + client + "\n"))
-			if err != nil {
-				log.Printf("LOG - [ERROR]: %v", err.Error())
+		if conn == nil {
+			return errors.New("connection is null")
+		}
+		uuid := uuid.New().String()
+		id, err := p.Usecase.AddNewClient(uuid, conn.RemoteAddr().String())
+		if err != nil {
+			log.Printf("LOG - [create-id-error]: %v", err.Error())
+		}
+		p.Connections[id] = conn
+		go p.HandlerConnection(conn, id)
+	}
+}
+
+func (p *presenter) HandlerConnection(conn net.Conn, id string) {
+	defer conn.Close()
+	r := bufio.NewReader(conn)
+	fmt.Fprintf(conn, "Welcome Client Your ID is %v\n", id)
+	log.Printf("LOG - [client]: new client connected\n")
+	fmt.Fprintf(conn, "ID [your id] (require): ")
+	idPayload, err := r.ReadString('\n')
+	if err != nil {
+		log.Printf("LOG - [client-id-error]: %v\n", err.Error())
+	}
+	newID := usecases.RemountPayload([]byte(idPayload))
+	fmt.Fprintf(conn, "ACTION [LIST|RELAY] (require): ")
+	actionPayload, err := r.ReadString('\n')
+	if err != nil {
+		log.Printf("LOG - [client-action-error]: %v\n", err.Error())
+	}
+	newAction := usecases.RemountPayload([]byte(actionPayload))
+	fmt.Fprintf(conn, "BODY [any data] (optional): ")
+	bodyPayload, err := r.ReadString('\n')
+	if err != nil {
+		log.Printf("LOG - [client-body-error]: %v\n", err.Error())
+	}
+	body := usecases.RemountPayload([]byte(bodyPayload))
+	switch string(newAction) {
+	case "LIST":
+		idExists := p.Usecase.FindClientByID(string(newID))
+		if !idExists {
+			fmt.Fprintf(conn, "id incorrect")
+		} else {
+			clients := p.Usecase.ListAllClientsID()
+			for n, id := range clients {
+				fmt.Fprintf(conn, "\nclient %v -> id: %v\n", n, id)
 			}
 		}
 	case "RELAY":
-		for _, conn := range connections {
-			_, err := conn.Write([]byte(body + "\n"))
-			if err != nil {
-				log.Printf("LOG - [ERROR]: %v", err.Error())
+		idExists := p.Usecase.FindClientByID(string(newID))
+		if !idExists {
+			fmt.Fprintf(conn, "id incorrect")
+		} else {
+			for _, connection := range p.Connections {
+				fmt.Fprintf(connection, "\nbody receive -> %v\n", string(body))
 			}
 		}
-	default:
-		_, err := ap.conn.Write([]byte("action " + action + " is incorrect or not exist\n"))
-		if err != nil {
-			log.Printf("LOG - [ERROR]: %v", err.Error())
-		}
-	}
-	_, err = ap.conn.Write([]byte("\nRecive message\n"))
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
 
+	}
 }

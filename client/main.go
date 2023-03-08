@@ -1,59 +1,37 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
-	"strings"
 )
 
 func main() {
 	conn, err := net.Dial("tcp", ":"+os.Getenv("SERVER_PORT"))
 	if err != nil {
-		log.Fatalf("LOG - [ERROR]: %v", err.Error())
+		log.Fatalf("LOG - [error]: %v", err.Error())
 	}
 	defer conn.Close()
-
-	readConnection := bufio.NewReader(conn)
-
-	response, err := readConnection.ReadString('\n')
-	if err != nil {
+	c := make(chan string)
+	go func(c chan string) {
+		_, err := io.Copy(os.Stdout, conn)
 		if err != nil {
-			log.Printf("LOG - [ERROR]: %v", err.Error())
+			log.Printf("LOG - [io-error]: %v\n", err.Error())
 		}
-	}
-	log.Println(strings.TrimSpace(response))
-	var id string
-	var action string
-	var body string
-	_, err = fmt.Scan(&id)
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
 
-	_, err = fmt.Scan(&action)
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
+		c <- "receive payload\n"
+	}(c)
+	go func(c chan string) {
+		_, err := io.Copy(conn, os.Stdin)
+		if err != nil {
+			log.Printf("LOG - [io-error]: %v\n", err.Error())
+		}
 
-	_, err = fmt.Scan(&body)
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
+		c <- "send payload\n"
+	}(c)
 
-	_, err = conn.Write([]byte(strings.TrimSpace(id)))
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
-	_, err = conn.Write([]byte(strings.TrimSpace(action)))
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
-	_, err = conn.Write([]byte(strings.TrimSpace(body)))
-	if err != nil {
-		log.Printf("LOG - [ERROR]: %v", err.Error())
-	}
+	fmt.Printf(<-c)
 
 }
