@@ -19,7 +19,7 @@ O projeto consiste em uma servido TCP, que fica esperando um cliente TCP se cone
     - Exemplo no WSL ou linux
 
     ```bash
-    export CONNECT_DB='<numero da porta>'
+    export SERVER_PORT='<numero da porta>'
     ```
 
 3. Voltando para pasta onde você clonou o projeto rode os seguintes comandos:
